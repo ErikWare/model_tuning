@@ -1,4 +1,14 @@
-
 numpy
 pandas
 scikit-learn
+transformers
+datasets
+accelerate
+torch
+wandb
+hydra-core
+pytorch-lightning
+tensorboard
+pytest
+black
+isort

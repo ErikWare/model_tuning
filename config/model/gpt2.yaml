@@ -1,0 +1,28 @@
+name: gpt2
+type: gpt2
+
+# Model configuration
+model:
+  pretrained_model_name: "gpt2"
+  model_path: ${paths.model_dir}/gpt2/model
+  tokenizer_path: ${paths.model_dir}/gpt2/tokenizer
+  max_length: 128
+  use_fast_tokenizer: true
+
+# Model specific training parameters
+architecture:
+  hidden_size: 768
+  num_attention_heads: 12
+  num_hidden_layers: 12
+  intermediate_size: 3072
+  hidden_dropout_prob: 0.1
+  attention_dropout_prob: 0.1
+
+generation:
+  max_length: 50
+  min_length: 10
+  do_sample: true
+  top_k: 50
+  top_p: 0.95
+  temperature: 0.7
+  num_return_sequences: 1
