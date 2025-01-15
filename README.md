@@ -1,75 +1,102 @@
 # Model Tuning Project
-An experimental area for tuning different open source models for test and learn
+A research workspace for fine-tuning and experimenting with large language models (LLMs), focused on optimizing performance and exploring different training strategies.
 
-## Virtual Environment Setup
+## 🚀 Quick Start
 
-1. Make the setup script executable:
+1. Set up the environment:
 ```bash
 chmod +x setup_venv.sh
-```
-
-2. Create and activate the virtual environment:
-```bash
 ./setup_venv.sh
+source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 ```
 
-3. To deactivate the virtual environment when finished:
+2. Install dependencies:
 ```bash
-deactivate
+pip install -r requirements.txt
 ```
 
-Note: The virtual environment files will be stored in the `venv` directory. Make sure to add `venv/` to your `.gitignore` if you're using git.
+3. Configure your experiment:
+```bash
+cp config/example.yaml config/my_experiment.yaml
+```
 
-## Enhanced Project Structure
+## 📁 Project Organization
+
 ```
 model_tuning/
 ├── config/                     # Hydra configuration files
-│   ├── config.yaml            # Base configuration
-│   ├── model/                 # Model-specific configs
-│   └── training/              # Training configs
-├── data/                      # Training and evaluation data
-│   ├── raw/                   # Original data
-│   └── processed/             # Processed datasets
-├── models/                    # Saved model checkpoints
-│   └── gpt2/                 # GPT-2 specific models
-├── notebooks/                 # Jupyter notebooks for exploration
-├── scripts/                   # Training and utility scripts
-├── src/                      # Source code
-│   ├── data/                 # Data processing utilities
-│   ├── models/               # Model implementations
-│   ├── training/             # Training loops and utilities
-│   └── utils/                # Helper functions
-└── tests/                    # Unit tests
+│   ├── base.yaml              # Default configuration
+│   ├── model/                 # Model architectures
+│   │   ├── gpt2.yaml
+│   │   └── bert.yaml
+│   └── tuning/               # Training strategies
+│       ├── lora.yaml
+│       └── peft.yaml
+├── data/                      # Dataset management
+├── experiments/              # Experiment tracking
+│   └── runs/                 # Individual run outputs
+├── models/                   # Model checkpoints
+├── src/                     # Core implementation
+└── utils/                   # Helper functions
 ```
 
-## Experiment Tracking
-This project uses Weights & Biases for experiment tracking. Set up your credentials:
+## 🎯 Supported Features
+
+- Fine-tuning strategies:
+  - LoRA (Low-Rank Adaptation)
+  - QLoRA (Quantized LoRA)
+  - Full fine-tuning
+- Model architectures:
+  - GPT-2
+  - BERT
+  - T5
+
+## 🛠️ Running Experiments
+
+1. Start a basic fine-tuning run:
+```bash
+python src/train.py model=gpt2 tuning=lora
+```
+
+2. Custom training configuration:
+```bash
+python src/train.py --config-path config/my_experiment.yaml
+```
+
+3. Monitor training:
+```bash
+tensorboard --logdir experiments/runs
+```
+
+## 📊 Experiment Tracking
+
+We use Weights & Biases for experiment tracking. Set up your credentials:
+
 ```bash
 wandb login
 ```
 
-## Running Experiments
-Start a new training run:
+View your experiments at: https://wandb.ai/your-username/model-tuning
+
+## 🧪 Testing
+
+Run the test suite:
 ```bash
-python src/train.py model=gpt2 training=default
+pytest tests/ -v
 ```
 
-## Downloading Models
-To download GPT-2 (117M) model and save it locally:
-```bash
-python scripts/download_gpt2.py
-```
+## 📝 Contributing
 
-The model will be saved in `models/gpt2/` with the following structure:
-```
-models/gpt2/
-├── model/              # Model weights and configuration
-├── tokenizer/          # Tokenizer files
-└── config.json         # Model configuration
-```
+1. Create a new branch for your feature
+2. Implement changes and add tests
+3. Submit a pull request
 
-## Testing
-Run tests:
-```bash
-pytest tests/
-```
+## 📚 References
+
+- [LoRA Paper](https://arxiv.org/abs/2106.09685)
+- [PEFT Documentation](https://huggingface.co/docs/peft)
+- [Hydra Configuration](https://hydra.cc/docs/intro/)
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
