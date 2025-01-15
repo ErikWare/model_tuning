@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import Optional, Union, Dict, Any
+import json
 
 # ML/DL imports
 import torch
@@ -58,6 +59,34 @@ def setup_model_and_tokenizer(
     model.to(device)
     return model, tokenizer, device
 
+class MathDataset(Dataset):
+    def __init__(self, data_path: str, tokenizer: TokenizerType):
+        self.examples = []
+        with open(data_path, 'r') as f:
+            for line in f:
+                example = json.loads(line.strip())
+                # Format as instruction-following example
+                text = f"Instruction: {example['prompt']}\nResponse: {example['completion']}"
+                self.examples.append(text)
+        self.tokenizer = tokenizer
+
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, idx):
+        text = self.examples[idx]
+        encoded = self.tokenizer(
+            text,
+            truncation=True,
+            max_length=512,
+            padding='max_length',
+            return_tensors='pt'
+        )
+        return {
+            'input_ids': encoded['input_ids'].squeeze(),
+            'attention_mask': encoded['attention_mask'].squeeze()
+        }
+
 def setup_training_args(cfg: DictConfig) -> TrainingArguments:
     """
     Initialize HuggingFace training arguments from config.
@@ -68,8 +97,17 @@ def setup_training_args(cfg: DictConfig) -> TrainingArguments:
     Returns:
         TrainingArguments object
     """
-    # TODO: Implement training arguments setup from config
-    pass
+    return TrainingArguments(
+        output_dir=cfg.training.output_dir,
+        num_train_epochs=cfg.training.epochs,
+        per_device_train_batch_size=cfg.training.batch_size,
+        warmup_steps=cfg.training.warmup_steps,
+        learning_rate=cfg.training.learning_rate,
+        logging_dir=cfg.training.logging_dir,
+        logging_steps=cfg.training.logging_steps,
+        save_steps=cfg.training.save_steps,
+        save_total_limit=cfg.training.save_total_limit
+    )
 
 @hydra.main(config_path="../config", config_name="config")
 def train(cfg: DictConfig) -> None:
@@ -94,25 +132,30 @@ def train(cfg: DictConfig) -> None:
         model, tokenizer, device = setup_model_and_tokenizer(cfg)
         logger.info(f"Model initialized on {device}")
         
-        # SECTION: Training Setup
-        # TODO: Implement dataset loading
-        # dataset = load_dataset(cfg.data.path)
+        # SECTION: Dataset Setup
+        dataset = MathDataset(cfg.data.path, tokenizer)
+        logger.info(f"Loaded {len(dataset)} training examples")
         
-        # TODO: Implement training loop
-        # training_args = setup_training_args(cfg)
-        # trainer = Trainer(
-        #     model=model,
-        #     args=training_args,
-        #     train_dataset=dataset,
-        #     data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer)
-        # )
+        # SECTION: Training Setup
+        training_args = setup_training_args(cfg)
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=dataset,
+            data_collator=DataCollatorForLanguageModeling(
+                tokenizer=tokenizer,
+                mlm=False
+            )
+        )
         
         # SECTION: Training Execution
-        # TODO: Add training execution
-        # trainer.train()
+        logger.info("Starting training...")
+        trainer.train()
         
         # SECTION: Save Results
-        # TODO: Add model saving and evaluation
+        model.save_pretrained(cfg.model.save_path)
+        tokenizer.save_pretrained(cfg.model.save_path)
+        logger.info(f"Model saved to {cfg.model.save_path}")
         
         logger.info("Training pipeline completed successfully!")
         
