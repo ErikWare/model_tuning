@@ -50,7 +50,7 @@ model:
 
 # Data configuration
 data:
-  path: "data/math_problems.jsonl"
+  path: "data/math_problems.jsonl"  # This path is relative to project root
 
 # Training configuration
 training:

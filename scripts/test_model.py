@@ -20,14 +20,22 @@ from src.gui.model_test_window import ModelTestWindow
 logger = setup_logging()
 MODEL_DIR = ROOT_DIR / "models" / "gpt2"
 
-def load_model_and_tokenizer():
-    """Load the saved model and tokenizer."""
-    model_path = MODEL_DIR / "model"
-    tokenizer_path = MODEL_DIR / "tokenizer"
+# Remove parse_args() function since we won't use it
+
+def load_model_and_tokenizer(model_dir: str | Path):
+    """
+    Load the saved model and tokenizer from specified directory.
     
-    logger.info("Loading model and tokenizer...")
-    model = GPT2LMHeadModel.from_pretrained(model_path)
-    tokenizer = GPT2Tokenizer.from_pretrained(tokenizer_path)
+    Args:
+        model_dir: Path to directory containing model and tokenizer
+    """
+    model_dir = Path(model_dir)
+    if not model_dir.exists():
+        raise FileNotFoundError(f"Model directory not found: {model_dir}")
+    
+    logger.info(f"Loading model and tokenizer from {model_dir}")
+    model = GPT2LMHeadModel.from_pretrained(model_dir)
+    tokenizer = GPT2Tokenizer.from_pretrained(model_dir)
     
     # Move to GPU if available
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -49,15 +57,24 @@ def generate_text(
     """Generate text from a prompt with performance metrics."""
     metrics = {}
     
-    # Tokenize and measure input
+    # Tokenize and measure input with attention mask
     start_time = time.time()
-    inputs = tokenizer.encode(prompt, return_tensors="pt").to(device)
+    encoded = tokenizer(
+        prompt,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_length
+    )
+    inputs = encoded['input_ids'].to(device)
+    attention_mask = encoded['attention_mask'].to(device)
     input_tokens = len(inputs[0])
     
     # Generate
     generation_start = time.time()
     outputs = model.generate(
         inputs,
+        attention_mask=attention_mask,
         max_length=max_length,
         temperature=temperature,
         top_p=top_p,
@@ -93,8 +110,11 @@ def generate_text(
     }
 
 def main():
+    # Hardcode the path to your trained model
+    model_dir = ROOT_DIR / "outputs" / "2025-01-15" / "19-56-41" / "outputs" / "math_model"
+    
     # Load model
-    model, tokenizer, device = load_model_and_tokenizer()
+    model, tokenizer, device = load_model_and_tokenizer(model_dir)
     logger.info(f"Model loaded on {device}")
     
     # Create and run GUI with generate_text function

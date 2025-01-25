@@ -1,17 +1,21 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext
-from typing import Dict, Any
+import threading
+from typing import Dict, Any, Callable
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from src.utils.voice_to_text import VoiceToText
 
 class ModelTestWindow:
     """GUI window for testing language models."""
     
     def __init__(self, model: GPT2LMHeadModel, tokenizer: GPT2Tokenizer, device: str,
-                 generate_fn: callable):
+                 generate_fn: Callable, tts_engine):
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
         self.generate_fn = generate_fn
+        self.voice_to_text = VoiceToText()  # Re-enable voice to text
+        self.tts_engine = tts_engine
         
         # Create main window
         self.root = tk.Tk()
@@ -39,6 +43,10 @@ class ModelTestWindow:
             prompt_frame, height=3, wrap=tk.WORD, font=("Arial", 10)
         )
         self.prompt_entry.pack(fill=tk.X, pady=5)
+        
+        # Voice input button
+        self.voice_button = ttk.Button(prompt_frame, text="🎤 Voice Input", command=self._handle_voice_input)
+        self.voice_button.pack(side=tk.LEFT, pady=5)
         
         # Controls section
         controls_frame = ttk.Frame(main_container)
@@ -75,6 +83,14 @@ class ModelTestWindow:
             right_controls, text="Generate", command=self.generate_response
         )
         generate_btn.pack(side=tk.RIGHT)
+        
+        # Add TTS toggle button
+        self.tts_button = ttk.Button(
+            main_container,
+            text="TTS: Off",
+            command=self.toggle_tts
+        )
+        self.tts_button.pack(pady=5)
         
         # Metrics section
         self.metrics_frame = ttk.LabelFrame(main_container, text="Performance Metrics", padding="5")
@@ -159,12 +175,34 @@ class ModelTestWindow:
             for i, text in enumerate(result["texts"], 1):
                 self.response_text.insert(tk.END, f"Generated text {i}:\n{text}\n\n")
             
+            # Add TTS playback
+            self.tts_engine.speak(result["texts"][0])
+            
             # Update metrics
             self.update_metrics(result["metrics"])
                 
         except Exception as e:
             self.response_text.delete("1.0", tk.END)
             self.response_text.insert(tk.END, f"Error: {str(e)}")
+    
+    def _handle_voice_input(self):
+        """Handle voice input button click"""
+        self.voice_button.state(['disabled'])
+        self.root.update()
+        
+        def listen():
+            text = self.voice_to_text.listen()
+            if text:
+                self.prompt_entry.delete('1.0', tk.END)
+                self.prompt_entry.insert('1.0', text)
+            self.voice_button.state(['!disabled'])
+            
+        # Run voice recognition in separate thread
+        threading.Thread(target=listen, daemon=True).start()
+    
+    def toggle_tts(self):
+        enabled = self.tts_engine.toggle()
+        self.tts_button.config(text=f"TTS: {'On' if enabled else 'Off'}")
     
     def run(self):
         """Start the GUI event loop."""

@@ -5,6 +5,7 @@ __pycache__/
 
 # Specific to my project
 models/*
+outputs/*
 
 # C extensions
 *.so

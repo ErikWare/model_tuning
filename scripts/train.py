@@ -1,7 +1,9 @@
 import os
+import sys
 from pathlib import Path
 from typing import Optional, Union, Dict, Any
 import json
+from datetime import datetime
 
 # ML/DL imports
 import torch
@@ -20,8 +22,11 @@ from transformers import (
 import hydra
 from omegaconf import DictConfig
 
-# Local imports
-from src.utils.download_utils import setup_logging
+# Add project root to Python path
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT_DIR))
+
+from src.utils.download_utils import ensure_directory, setup_logging
 
 # SECTION: Global Configuration
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -31,6 +36,13 @@ logger = setup_logging()
 ModelType = Union[GPT2LMHeadModel, Any]  # Extend with other model types
 TokenizerType = Union[GPT2Tokenizer, Any] # Extend with other tokenizers
 DeviceType = Union[str, torch.device]
+
+def resolve_path(cfg_path: str) -> Path:
+    """Convert config path to absolute path relative to project root."""
+    path = Path(cfg_path)
+    if not path.is_absolute():
+        path = ROOT_DIR / path
+    return path
 
 def setup_model_and_tokenizer(
     cfg: DictConfig
@@ -50,6 +62,14 @@ def setup_model_and_tokenizer(
     # Load model and tokenizer from saved paths
     model = GPT2LMHeadModel.from_pretrained(cfg.model.model_path)
     tokenizer = GPT2Tokenizer.from_pretrained(cfg.model.tokenizer_path)
+
+    
+
+    # Assign eos_token as pad_token
+    tokenizer.pad_token = tokenizer.eos_token
+
+    # Update the model's padding token
+    model.config.pad_token_id = tokenizer.eos_token_id
     
     # Set up device - allow manual override from config
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -62,7 +82,12 @@ def setup_model_and_tokenizer(
 class MathDataset(Dataset):
     def __init__(self, data_path: str, tokenizer: TokenizerType):
         self.examples = []
-        with open(data_path, 'r') as f:
+        # Resolve the data path relative to project root
+        resolved_path = resolve_path(data_path)
+        if not resolved_path.exists():
+            raise FileNotFoundError(f"Data file not found at: {resolved_path}")
+            
+        with open(resolved_path, 'r') as f:
             for line in f:
                 example = json.loads(line.strip())
                 # Format as instruction-following example
@@ -97,8 +122,13 @@ def setup_training_args(cfg: DictConfig) -> TrainingArguments:
     Returns:
         TrainingArguments object
     """
+    # Generate a unique run name using timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_name = f"training_run_{timestamp}"
+    
     return TrainingArguments(
         output_dir=cfg.training.output_dir,
+        run_name=run_name,  # Add distinct run name
         num_train_epochs=cfg.training.epochs,
         per_device_train_batch_size=cfg.training.batch_size,
         warmup_steps=cfg.training.warmup_steps,
@@ -128,9 +158,17 @@ def train(cfg: DictConfig) -> None:
     try:
         logger.info("Initializing training pipeline...")
         
+        # Ensure data directory exists
+        data_dir = ROOT_DIR / "data"
+        data_dir.mkdir(exist_ok=True, parents=True)
+        
         # SECTION: Model Setup
         model, tokenizer, device = setup_model_and_tokenizer(cfg)
         logger.info(f"Model initialized on {device}")
+        
+        # Log the resolved data path
+        data_path = resolve_path(cfg.data.path)
+        logger.info(f"Loading training data from: {data_path}")
         
         # SECTION: Dataset Setup
         dataset = MathDataset(cfg.data.path, tokenizer)
