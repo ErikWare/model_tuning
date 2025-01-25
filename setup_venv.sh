@@ -194,15 +194,67 @@ remove_conda_from_shell
 # Step 8: Reload VS Code
 reload_vscode
 
-echo "=== Deployment Script Completed Successfully ==="#!/bin/bash
+echo "=== Deployment Script Completed Successfully ==="
 
-# Create virtual environment
+#!/bin/bash
+
+# Exit on error
+set -e
+
+echo "🚀 Setting up virtual environment for ML project..."
+
+# Check if Python 3 is installed
+if ! command -v python3 &> /dev/null; then
+    echo "❌ Python 3 is not installed. Please install Python 3 first."
+    exit 1
+fi
+
+# Create and activate virtual environment
+echo "📦 Creating virtual environment..."
 python3 -m venv venv
-
-# Activate virtual environment
 source venv/bin/activate
 
-# Install requirements
-pip install -r requirements.txt
+# Upgrade pip
+echo "🔄 Upgrading pip..."
+pip install --upgrade pip
 
-echo "Virtual environment created and activated. Use 'deactivate' to exit."
+# Install packages one by one with error handling
+echo "📚 Installing dependencies..."
+
+# Core packages first
+echo "Installing scipy (this might take a while)..."
+pip install scipy==1.13.1
+
+echo "Installing numpy..."
+pip install "numpy>=1.24.3,<1.25.0"
+
+echo "Installing PyTorch..."
+pip install torch==2.2.0
+
+# Install remaining packages
+packages=(
+    "transformers==4.37.2"
+    "accelerate==0.27.2"
+    "openai-whisper==20231117"
+    "sounddevice==0.4.6"
+    "tqdm==4.66.2"
+    "wandb==0.16.3"
+)
+
+for package in "${packages[@]}"; do
+    echo "Installing $package..."
+    pip install "$package" || {
+        echo "❌ Failed to install $package"
+        exit 1
+    }
+done
+
+# Verify installation
+echo "✅ Verifying installation..."
+python3 -c "import torch; import transformers; import whisper; import sounddevice" || {
+    echo "❌ Verification failed. Some packages are not properly installed."
+    exit 1
+}
+
+echo "🎉 Setup completed successfully!"
+echo "To activate the virtual environment, run: source venv/bin/activate"
