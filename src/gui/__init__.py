@@ -1,3 +1,3 @@
-from .model_test_window import ModelTestWindow
+from .chat_interface import ChatInterface
 
-__all__ = ['ModelTestWindow']
+__all__ = ['ChatInterface']

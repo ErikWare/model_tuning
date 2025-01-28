@@ -1,3 +1,8 @@
-from .text_generation import generate_text
+from .model_controller import ModelController
 
-__all__ = ['generate_text']
+__version__ = '1.0.0'
+
+__all__ = [
+    'ModelController',
+    '__version__'
+]

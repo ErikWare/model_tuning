@@ -1,17 +1,12 @@
 import os
 import logging
 from pathlib import Path
+from typing import Union
 
-def ensure_directory(directory: str) -> Path:
+def ensure_directory(directory: Union[str, Path]) -> Path:
     """Create directory if it doesn't exist."""
     path = Path(directory)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
-def setup_logging():
-    """Configure basic logging."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
-    return logging.getLogger(__name__)
+# Remove duplicate setup_logging function as it's now in logging_utils.py
