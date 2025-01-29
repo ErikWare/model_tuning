@@ -10,6 +10,7 @@ from src.utils.generation_configs import GenerationConfig  # Import GenerationCo
 import tkinter.ttk as ttk  # Import ttk for Progressbar
 import markdown  # Import markdown for converting Markdown to HTML
 from src.utils.personality_configs import PersonalityConfig
+from src.utils.markdown_formatter import MarkdownFormatter  # Import MarkdownFormatter
 
 logger = setup_logging()
 
@@ -198,6 +199,9 @@ class ChatInterface:
         )
         self.output_text.pack(fill=tk.BOTH, expand=True)
         
+        # Initialize MarkdownFormatter
+        self.markdown_formatter = MarkdownFormatter(self.output_text)
+        
         # Define tags for Markdown formatting
         self.output_text.tag_configure("bold", font=("Arial", 11, "bold"))
         self.output_text.tag_configure("italic", font=("Arial", 11, "italic"))
@@ -253,22 +257,8 @@ class ChatInterface:
         thread.start()
     
     def parse_markdown(self, text):
-        """Simple Markdown parser to apply text formatting."""
-        self.output_text.config(state='normal')
-        self.output_text.delete("1.0", tk.END)
-        
-        lines = text.split('\n')
-        for line in lines:
-            if line.startswith('# '):
-                self.output_text.insert(tk.END, line[2:] + '\n', "header1")
-            elif line.startswith('## '):
-                self.output_text.insert(tk.END, line[3:] + '\n', "header2")
-            elif line.startswith('### '):
-                self.output_text.insert(tk.END, line[4:] + '\n', "header3")
-            else:
-                self.insert_formatted_text(line + '\n')
-    
-        self.output_text.config(state='disabled')
+        """Parse and display Markdown content using MarkdownFormatter."""
+        self.markdown_formatter.parse_markdown(text)
     
     def insert_formatted_text(self, text):
         """Insert text with bold and italic formatting."""
