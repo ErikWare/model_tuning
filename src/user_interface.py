@@ -6,6 +6,7 @@ from tkinter import scrolledtext
 import logging
 from src.utils.logging_utils import setup_logging
 import threading
+from src.utils.generation_configs import GenerationConfig  # Import GenerationConfig
 
 logger = setup_logging()
 
@@ -13,6 +14,9 @@ class ChatInterface:
     def __init__(self, model=None, tokenizer=None, device='cpu', generate_fn=None, tts_engine=None):
         # Save the generation function
         self.generate_fn = generate_fn
+        
+        # Assign tokenizer to an instance variable
+        self.tokenizer = tokenizer  # Added line
         
         # Create main window
         self.root = tk.Tk()
@@ -56,19 +60,54 @@ class ChatInterface:
         controls_frame = tk.LabelFrame(main_frame, text="Generation Controls", bg='white')
         controls_frame.pack(fill=tk.X, pady=(0, 10))
         
-        # Temperature control
-        temp_frame = tk.Frame(controls_frame, bg='white')
-        temp_frame.pack(side=tk.LEFT, padx=10, pady=5)
-        tk.Label(temp_frame, text="Temperature:", bg='white').pack(side=tk.LEFT)
-        self.temp_var = tk.StringVar(value="0.7")
-        tk.Entry(temp_frame, textvariable=self.temp_var, width=5).pack(side=tk.LEFT, padx=5)
+        # Add Generation Configuration Dropdown
+        config_frame = tk.Frame(controls_frame, bg='white')
+        config_frame.pack(side=tk.LEFT, padx=10, pady=5)
+        tk.Label(config_frame, text="Configuration:", bg='white').pack(side=tk.LEFT)
         
-        # Max length control
-        length_frame = tk.Frame(controls_frame, bg='white')
-        length_frame.pack(side=tk.LEFT, padx=10, pady=5)
-        tk.Label(length_frame, text="Max Length:", bg='white').pack(side=tk.LEFT)
-        self.length_var = tk.StringVar(value="100")
-        tk.Entry(length_frame, textvariable=self.length_var, width=5).pack(side=tk.LEFT, padx=5)
+        self.config_var = tk.StringVar(value="STANDARD_QUALITY")  # Default selection
+        config_options = list(GenerationConfig.__annotations__.keys())
+        tk.OptionMenu(config_frame, self.config_var, *config_options, command=self.update_selected_config).pack(side=tk.LEFT, padx=5)
+        
+        # Add Selected Configuration Frame
+        selected_config_frame = tk.LabelFrame(main_frame, text="Selected Configuration", bg='white')
+        selected_config_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.selected_config_labels = {}
+        config_params = [
+            "max_new_tokens",
+            "temperature",
+            "top_k",
+            "top_p",
+            "repetition_penalty",
+            "no_repeat_ngram_size",
+            "num_beams",
+            "early_stopping",
+            "min_length",
+            "length_penalty"
+        ]
+        
+        for i, param in enumerate(config_params):
+            row = i // 5
+            col = (i % 5) * 2
+            
+            tk.Label(
+                selected_config_frame,
+                text=f"{param.replace('_', ' ').title()}:",
+                bg='white',
+                font=('Arial', 10)
+            ).grid(row=row, column=col, padx=5, pady=5, sticky='e')
+            
+            self.selected_config_labels[param] = tk.Label(
+                selected_config_frame,
+                text="",  # Will be updated dynamically
+                bg='white',
+                font=('Arial', 10, 'bold')
+            )
+            self.selected_config_labels[param].grid(row=row, column=col+1, padx=5, pady=5, sticky='w')
+        
+        # Initialize the selected configuration display
+        self.update_selected_config(self.config_var.get())
         
         # Metrics Frame with grid layout
         metrics_frame = tk.LabelFrame(main_frame, text="Generation Metrics", bg='white')
@@ -134,6 +173,20 @@ class ChatInterface:
         # Add keyboard shortcut
         self.root.bind('<Control-Return>', lambda e: self.generate_response())
     
+    def update_selected_config(self, config_name):
+        """Update the Selected Configuration display based on the selected configuration."""
+        try:
+            eos_token_id = self.tokenizer.eos_token_id if self.tokenizer else None
+            generation_params = GenerationConfig.get_config(config_name, eos_token_id)
+            
+            for param, label in self.selected_config_labels.items():
+                value = generation_params.get(param, "N/A")
+                label.config(text=str(value))
+        except Exception as e:
+            logger.error(f"Failed to update selected configuration: {str(e)}")
+            for label in self.selected_config_labels.values():
+                label.config(text="Error")
+    
     def update_metrics(self, metrics):
         """Update metrics display with animation"""
         self.metrics_labels["Generation Time"].config(text=f"{metrics['generation_time']:.2f}s")
@@ -160,14 +213,14 @@ class ChatInterface:
             if not prompt:
                 return
                 
-            # Get parameters from controls
-            temperature = float(self.temp_var.get())
-            max_length = int(self.length_var.get())
+            # Get selected configuration
+            config_name = self.config_var.get()
+            eos_token_id = self.tokenizer.eos_token_id if self.tokenizer else None
+            generation_params = GenerationConfig.get_config(config_name, eos_token_id)
             
             result = self.generate_fn(
                 prompt=prompt,
-                max_length=max_length,
-                temperature=temperature
+                **generation_params  # Apply selected configuration
             )
             
             # Update metrics with animation
