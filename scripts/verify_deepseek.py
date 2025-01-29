@@ -35,13 +35,18 @@ def verify_model():
         )
         
         # Test generation
-        test_prompt = "Write a simple Python function that adds two numbers:"
+        test_prompt = """
+        USER QUESTION: I am 5 years old, tell me a story. 
+        RESPONSE SAFTY CONSTRAINT: YOU WILL NOT USE ANY INAPPROPRIATE LANGUAGE OR CONTENT.
+        """
+    
         logger.info(f"\nTesting with prompt: {test_prompt}")
         
         inputs = tokenizer(test_prompt, return_tensors="pt").to(model.device)
         outputs = model.generate(
             **inputs,
-            max_length=200,
+            #max_length=2500,
+            max_new_tokens=500,
             temperature=0.7,
             num_return_sequences=1
         )

@@ -1,83 +1,71 @@
 import sys
 from pathlib import Path
-from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+import os
+from src.models.model_controller import ModelController
 from src.gui.chat_interface import ChatInterface
 from src.utils.logging_utils import setup_logging
 
 ROOT_DIR = Path(__file__).parent
 sys.path.append(str(ROOT_DIR))
 
-def load_deepseek_model(model_dir: Path):
-    """Load DeepSeek model and tokenizer"""
-    model = AutoModelForCausalLM.from_pretrained(
-        model_dir,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map="auto",
-        trust_remote_code=True,
-        low_cpu_mem_usage=True
-    )
-    tokenizer = AutoTokenizer.from_pretrained(model_dir)
-    return model, tokenizer
+# Initialize centralized logger
+logger = setup_logging(ROOT_DIR / "logs")
+
+def setup_environment():
+    """Configure environment for M1 Mac."""
+    logger.info("Configuring environment...")
+    
+    # Configure PyTorch
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+        os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+        logger.info("Using Apple Metal Performance Shaders (MPS)")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+        logger.info("Using CUDA GPU acceleration")
+    else:
+        device = torch.device("cpu")
+        logger.info("Using CPU device")
+    
+    # Set default dtype for better memory handling
+    torch.set_default_dtype(torch.float32)
+    
+    return device
 
 def main():
     try:
-        # Setup logging
-        log_dir = ROOT_DIR / "logs"
-        logger = setup_logging(log_dir)
-        logger.info("Initializing application...")
-
-        # Load DeepSeek model
-        model_dir = ROOT_DIR / "models" / "deepseek"
-        model, tokenizer = load_deepseek_model(model_dir)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        # Setup environment
+        device = setup_environment()
         
-        # Create generation function
-        def generate_text(prompt, max_length=100, temperature=0.7):
-            import time
-            start_time = time.time()
-            
-            inputs = tokenizer(prompt, return_tensors="pt").to(device)
-            input_tokens = len(inputs.input_ids[0])
-            
-            outputs = model.generate(
-                **inputs,
-                max_length=max_length,
-                temperature=temperature,
-                do_sample=True,
-                pad_token_id=tokenizer.eos_token_id
-            )
-            
-            end_time = time.time()
-            generation_time = end_time - start_time
-            
-            decoded_outputs = [tokenizer.decode(out, skip_special_tokens=True) for out in outputs]
-            new_tokens = [len(out) - input_tokens for out in outputs]
-            
-            return {
-                "texts": decoded_outputs,
-                "metrics": {
-                    "generation_time": generation_time,
-                    "tokens_per_second": sum(new_tokens) / generation_time,
-                    "input_tokens": input_tokens,
-                    "new_tokens": new_tokens
-                }
-            }
-
-        # Initialize GUI
-        app = ChatInterface(
-            model=model,
-            tokenizer=tokenizer,
-            device=device,
-            generate_fn=generate_text
+        # Initialize model controller
+        model_path = ROOT_DIR / "models" / "deepseek"
+        
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model not found at {model_path}")
+        
+        controller = ModelController(
+            model_path=model_path,
+            device=device
         )
         
-        logger.info("GUI initialized successfully")
+        # Initialize GUI
+        logger.info("Initializing chat interface")
+        app = ChatInterface(
+            model=controller.model,
+            tokenizer=controller.tokenizer,
+            device=device,
+            generate_fn=controller.generate
+        )
+        
+        logger.info("Starting application")
         app.run()
 
     except Exception as e:
-        logger.error(f"Application error: {e}", exc_info=True)
+        logger.critical("Fatal application error", exc_info=True)
         raise
+    finally:
+        logger.info("Application shutting down")
 
 if __name__ == "__main__":
     main()
