@@ -15,6 +15,7 @@ Usage:
 from transformers import StoppingCriteriaList
 from typing import Dict
 
+
 class GenerationConfig:
     """
     A collection of preset configurations for text generation.

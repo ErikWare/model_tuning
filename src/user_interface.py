@@ -9,6 +9,7 @@ import threading
 from src.utils.generation_configs import GenerationConfig  # Import GenerationConfig
 import tkinter.ttk as ttk  # Import ttk for Progressbar
 import markdown  # Import markdown for converting Markdown to HTML
+from src.utils.personality_configs import PersonalityConfig
 
 logger = setup_logging()
 
@@ -70,6 +71,15 @@ class ChatInterface:
         self.config_var = tk.StringVar(value="STANDARD_QUALITY")  # Default selection
         config_options = list(GenerationConfig.__annotations__.keys())
         tk.OptionMenu(config_frame, self.config_var, *config_options, command=self.update_selected_config).pack(side=tk.LEFT, padx=5)
+        
+        # Add Personalities Dropdown
+        personality_frame = tk.Frame(controls_frame, bg='white')
+        personality_frame.pack(side=tk.LEFT, padx=10, pady=5)
+        tk.Label(personality_frame, text="Personality:", bg='white').pack(side=tk.LEFT)
+        
+        self.personality_var = tk.StringVar(value="Blank")  # Default selection
+        personality_options = list(PersonalityConfig.PERSONALITY_OPTIONS.keys())
+        tk.OptionMenu(personality_frame, self.personality_var, *personality_options, command=self.update_selected_personality).pack(side=tk.LEFT, padx=5)
         
         # Add Selected Configuration Frame
         selected_config_frame = tk.LabelFrame(main_frame, text="Selected Configuration", bg='white')
@@ -198,6 +208,11 @@ class ChatInterface:
         
         # Add keyboard shortcut
         self.root.bind('<Control-Return>', lambda e: self.generate_response())
+        
+        self.personalities = PersonalityConfig.PERSONALITY_OPTIONS
+        
+        # Initialize selected personality
+        self.selected_personality = PersonalityConfig.BLANK
     
     def update_selected_config(self, config_name):
         """Update the Selected Configuration display based on the selected configuration."""
@@ -212,6 +227,10 @@ class ChatInterface:
             logger.error(f"Failed to update selected configuration: {str(e)}")
             for label in self.selected_config_labels.values():
                 label.config(text="Error")
+    
+    def update_selected_personality(self, personality_name):
+        """Update the selected personality."""
+        self.selected_personality = PersonalityConfig.PERSONALITY_OPTIONS.get(personality_name, "")
     
     def update_metrics(self, metrics):
         """Update metrics display with animation"""
@@ -265,11 +284,20 @@ class ChatInterface:
     def _generate_response_thread(self):
         """Thread target for generating response."""
         try:
-            prompt = self.input_text.get("1.0", tk.END).strip()
+            user_input = self.input_text.get("1.0", tk.END).strip()
             
-            if not prompt:
+            if not user_input:
                 return
                 
+            # Get selected personality
+            personality_header = self.selected_personality if hasattr(self, 'selected_personality') else ""
+            
+            # Prepend personality to the user input if not blank
+            if personality_header:
+                prompt = f"{personality_header}\n{user_input}"
+            else:
+                prompt = user_input
+            
             # Get selected configuration
             config_name = self.config_var.get()
             eos_token_id = self.tokenizer.eos_token_id if self.tokenizer else None
@@ -305,3 +333,10 @@ class ChatInterface:
     def run(self):
         """Start the GUI."""
         self.root.mainloop()
+    
+    def select_personality(self, personality_name: str):
+        """
+        Select a personality and prepend it to the user prompt.
+        """
+        personality_header = self.personalities.get(personality_name, "")
+        self.current_prompt = f"{personality_header}\n{self.user_input}"
