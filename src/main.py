@@ -2,15 +2,17 @@ import sys
 from pathlib import Path
 import torch
 import os
-from src.models.model_controller import ModelController
-from src.gui.chat_interface import ChatInterface
+
+# Add project root to Python path
+PROJECT_ROOT = Path(__file__).parents[1]
+sys.path.append(str(PROJECT_ROOT))
+
+from src.model_controller import ModelController
+from src.user_interface import ChatInterface
 from src.utils.logging_utils import setup_logging
 
-ROOT_DIR = Path(__file__).parent
-sys.path.append(str(ROOT_DIR))
-
 # Initialize centralized logger
-logger = setup_logging(ROOT_DIR / "logs")
+logger = setup_logging(PROJECT_ROOT / "logs")
 
 def setup_environment():
     """Configure environment for M1 Mac."""
@@ -38,9 +40,9 @@ def main():
         # Setup environment
         device = setup_environment()
         
-        # Initialize model controller
-        model_path = ROOT_DIR / "models" / "deepseek"
-        
+        # Initialize model controller with absolute path
+        model_path = PROJECT_ROOT / "models" / "deepseek"
+
         if not model_path.exists():
             raise FileNotFoundError(f"Model not found at {model_path}")
         

@@ -3,8 +3,10 @@ import torch
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from src.utils.logging_utils import setup_logging
+from src.utils.generation_configs import GenerationConfig
 
-logger = logging.getLogger(__name__)
+logger = setup_logging()
 
 class ModelController:
     def __init__(
@@ -76,7 +78,9 @@ class ModelController:
             if self.device.type == "mps":
                 logger.info("Moving model to MPS device")
                 self.model = self.model.to(self.device)
-                
+            
+            logger.info("Model and tokenizer loaded successfully.")
+            
             # Get model info
             self.model_name = getattr(self.model.config, '_name_or_path', 'Unknown Model')
             self.model_params = sum(p.numel() for p in self.model.parameters()) / 1_000_000
@@ -84,7 +88,7 @@ class ModelController:
             logger.info(f"Model loaded: {self.model_name} ({self.model_params:.1f}M parameters)")
             
         except Exception as e:
-            logger.error("Failed to load model", exc_info=True)
+            logger.error("Failed to load model or tokenizer", exc_info=True)
             raise
 
     def generate(
@@ -103,7 +107,8 @@ class ModelController:
             inputs = self.tokenizer(prompt, return_tensors="pt")
             if self.device.type == "mps":
                 inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            input_tokens = len(inputs.input_ids[0])
+            # Changed from attribute access to key-based access
+            input_tokens = len(inputs['input_ids'][0])
             
             # Generate text
             with torch.inference_mode():

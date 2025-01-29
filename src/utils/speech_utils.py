@@ -17,12 +17,12 @@ class VoiceToText:
     Handles recording from microphone and transcribing via Whisper, all offline.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
-        self.sample_rate = 16000
-        self.channels = 1
-        self.recording = False
-        self.timeout = 30  # Max recording time in seconds
+        self.sample_rate: int = 16000
+        self.channels: int = 1
+        self.recording: bool = False
+        self.timeout: int = 30  # Max recording time in seconds
 
         # Suppress future warnings from Whisper
         with warnings.catch_warnings():
@@ -68,9 +68,9 @@ class VoiceToText:
             self.logger.error(f"Error transcribing audio: {e}")
             return None
 
-    def save_audio(self, audio_data: np.ndarray, filename: str = "recording.wav"):
+    def save_audio(self, audio_data: np.ndarray, filename: str = "recording.wav") -> None:
         """
-        Utility method to save audio data to a WAV file (for debugging or logging).
+        Save audio data to a WAV file (for debugging or logging).
         """
         try:
             wavfile.write(filename, self.sample_rate, audio_data)
@@ -106,13 +106,14 @@ class TextToSpeech:
     Offline text-to-speech using pyttsx3.
     """
 
-    def __init__(self):
-        self.enabled = False
+    def __init__(self) -> None:
+        self.enabled: bool = False
         self.logger = logging.getLogger(__name__)
 
         # Initialize pyttsx3 once at startup (offline TTS engine)
         try:
             self.engine = pyttsx3.init()
+            self.logger.info("TTS engine initialized successfully.")
         except Exception as e:
             self.logger.error(f"Failed to initialize offline TTS engine: {e}")
             self.engine = None
@@ -123,6 +124,7 @@ class TextToSpeech:
         Returns True if successful, else False.
         """
         if not self.enabled or not text:
+            self.logger.debug("TTS is disabled or text is empty.")
             return False
 
         if not self.engine:
@@ -132,6 +134,7 @@ class TextToSpeech:
         try:
             self.engine.say(text)
             self.engine.runAndWait()
+            self.logger.info("Speech synthesis completed successfully.")
             return True
         except Exception as e:
             self.logger.error(f"TTS Error: {e}")

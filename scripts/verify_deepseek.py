@@ -3,9 +3,10 @@ import torch
 from pathlib import Path
 import logging
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from src.utils.logging_utils import setup_logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Initialize logger using centralized logging
+logger = setup_logging()
 
 def verify_model():
     """Verify the downloaded DeepSeek model"""
@@ -36,8 +37,9 @@ def verify_model():
         
         # Test generation
         test_prompt = """
-        USER QUESTION: I am 5 years old, tell me a story. 
+        USER QUESTION: you are answering the question of a 5 year old, the question is: "what is the captial city of China"? 
         RESPONSE SAFTY CONSTRAINT: YOU WILL NOT USE ANY INAPPROPRIATE LANGUAGE OR CONTENT.
+        MODEL RESPONSE: PROVIDE A FACTUAL ANSWER TO THE QUESTION.
         """
     
         logger.info(f"\nTesting with prompt: {test_prompt}")
@@ -45,10 +47,13 @@ def verify_model():
         inputs = tokenizer(test_prompt, return_tensors="pt").to(model.device)
         outputs = model.generate(
             **inputs,
-            #max_length=2500,
-            max_new_tokens=500,
+            max_new_tokens=300,  # Adjusted based on input length
+            # max_length=512,  # Removed to rely on max_new_tokens
             temperature=0.7,
-            num_return_sequences=1
+            num_return_sequences=1,
+            no_repeat_ngram_size=2,
+            eos_token_id=tokenizer.eos_token_id,
+            min_length=40      # Reduced to avoid forcing too many tokens
         )
         
         response = tokenizer.decode(outputs[0], skip_special_tokens=True)

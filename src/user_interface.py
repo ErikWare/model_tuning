@@ -4,9 +4,10 @@ os.environ['TK_SILENCE_DEPRECATION'] = '1'
 import tkinter as tk
 from tkinter import scrolledtext
 import logging
+from src.utils.logging_utils import setup_logging
+import threading
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = setup_logging()
 
 class ChatInterface:
     def __init__(self, model=None, tokenizer=None, device='cpu', generate_fn=None, tts_engine=None):
@@ -146,7 +147,12 @@ class ChatInterface:
             self.root.after(1000, lambda l=label: l.config(foreground='black'))
     
     def generate_response(self):
-        """Generate response based on input text."""
+        """Generate response based on input text asynchronously."""
+        thread = threading.Thread(target=self._generate_response_thread)
+        thread.start()
+    
+    def _generate_response_thread(self):
+        """Thread target for generating response."""
         try:
             self.generate_btn.config(state='disabled')
             prompt = self.input_text.get("1.0", tk.END).strip()
