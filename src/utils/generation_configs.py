@@ -120,6 +120,20 @@ class GenerationConfig:
         "length_penalty": 1.0
     }
 
+    DIRECT_RESPONSE: Dict[str, any] = {
+        "max_new_tokens": 150,
+        "temperature": 0.5,
+        "top_k": 50,
+        "top_p": 0.9,
+        "repetition_penalty": 1.2,
+        "no_repeat_ngram_size": 3,
+        "num_beams": 2,
+        "early_stopping": True,
+        "eos_token_id": None,   # To be set dynamically based on tokenizer
+        "min_length": 20,
+        "length_penalty": 1.0
+    }
+
     @classmethod
     def get_config(cls, config_name: str, eos_token_id: int) -> Dict[str, any]:
         """

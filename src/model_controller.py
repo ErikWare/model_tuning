@@ -94,8 +94,6 @@ class ModelController:
     def generate(
         self,
         prompt: str,
-        max_length: int = 100,
-        temperature: float = 0.7,
         **kwargs
     ) -> Dict[str, Any]:
         """Generate text with performance metrics."""
@@ -107,15 +105,12 @@ class ModelController:
             inputs = self.tokenizer(prompt, return_tensors="pt")
             if self.device.type == "mps":
                 inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            # Changed from attribute access to key-based access
             input_tokens = len(inputs['input_ids'][0])
             
             # Generate text
             with torch.inference_mode():
                 outputs = self.model.generate(
                     **inputs,
-                    max_length=max_length,
-                    temperature=temperature,
                     do_sample=True,
                     pad_token_id=self.tokenizer.eos_token_id,
                     **kwargs

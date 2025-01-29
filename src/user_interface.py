@@ -7,6 +7,8 @@ import logging
 from src.utils.logging_utils import setup_logging
 import threading
 from src.utils.generation_configs import GenerationConfig  # Import GenerationConfig
+import tkinter.ttk as ttk  # Import ttk for Progressbar
+import markdown  # Import markdown for converting Markdown to HTML
 
 logger = setup_logging()
 
@@ -84,7 +86,8 @@ class ChatInterface:
             "num_beams",
             "early_stopping",
             "min_length",
-            "length_penalty"
+            "length_penalty",
+            "DIRECT_RESPONSE"
         ]
         
         for i, param in enumerate(config_params):
@@ -108,6 +111,18 @@ class ChatInterface:
         
         # Initialize the selected configuration display
         self.update_selected_config(self.config_var.get())
+        
+        # Add Spinner (Progressbar) Widget
+        spinner_frame = tk.Frame(main_frame, bg='white')
+        spinner_frame.pack(pady=(0, 10))
+        
+        self.spinner = ttk.Progressbar(
+            spinner_frame,
+            mode='indeterminate',
+            length=200
+        )
+        self.spinner.pack()
+        self.spinner.stop()  # Ensure spinner is stopped initially
         
         # Metrics Frame with grid layout
         metrics_frame = tk.LabelFrame(main_frame, text="Generation Metrics", bg='white')
@@ -162,13 +177,24 @@ class ChatInterface:
         
         # Output area
         tk.Label(main_frame, text="Response:", bg='white', font=('Arial', 10)).pack(anchor='w')
+        
+        # Replace HtmlFrame with ScrolledText for rendering Markdown
         self.output_text = scrolledtext.ScrolledText(
             main_frame,
             height=12,
             font=('Arial', 11),
-            wrap=tk.WORD
+            wrap=tk.WORD,
+            state='disabled'  # Make it read-only
         )
         self.output_text.pack(fill=tk.BOTH, expand=True)
+        
+        # Define tags for Markdown formatting
+        self.output_text.tag_configure("bold", font=("Arial", 11, "bold"))
+        self.output_text.tag_configure("italic", font=("Arial", 11, "italic"))
+        self.output_text.tag_configure("header1", font=("Arial", 16, "bold"))
+        self.output_text.tag_configure("header2", font=("Arial", 14, "bold"))
+        self.output_text.tag_configure("header3", font=("Arial", 12, "bold"))
+        # Add more tags as needed
         
         # Add keyboard shortcut
         self.root.bind('<Control-Return>', lambda e: self.generate_response())
@@ -201,13 +227,44 @@ class ChatInterface:
     
     def generate_response(self):
         """Generate response based on input text asynchronously."""
+        # Start spinner
+        self.spinner.start()
+        self.generate_btn.config(state='disabled')
         thread = threading.Thread(target=self._generate_response_thread)
         thread.start()
+    
+    def parse_markdown(self, text):
+        """Simple Markdown parser to apply text formatting."""
+        self.output_text.config(state='normal')
+        self.output_text.delete("1.0", tk.END)
+        
+        lines = text.split('\n')
+        for line in lines:
+            if line.startswith('# '):
+                self.output_text.insert(tk.END, line[2:] + '\n', "header1")
+            elif line.startswith('## '):
+                self.output_text.insert(tk.END, line[3:] + '\n', "header2")
+            elif line.startswith('### '):
+                self.output_text.insert(tk.END, line[4:] + '\n', "header3")
+            else:
+                self.insert_formatted_text(line + '\n')
+    
+        self.output_text.config(state='disabled')
+    
+    def insert_formatted_text(self, text):
+        """Insert text with bold and italic formatting."""
+        words = text.split(' ')
+        for word in words:
+            if word.startswith('**') and word.endswith('**'):
+                self.output_text.insert(tk.END, word[2:-2] + ' ', "bold")
+            elif word.startswith('*') and word.endswith('*'):
+                self.output_text.insert(tk.END, word[1:-1] + ' ', "italic")
+            else:
+                self.output_text.insert(tk.END, word + ' ')
     
     def _generate_response_thread(self):
         """Thread target for generating response."""
         try:
-            self.generate_btn.config(state='disabled')
             prompt = self.input_text.get("1.0", tk.END).strip()
             
             if not prompt:
@@ -226,16 +283,24 @@ class ChatInterface:
             # Update metrics with animation
             self.update_metrics(result["metrics"])
             
-            # Display response
-            self.output_text.delete("1.0", tk.END)
-            self.output_text.insert(tk.END, result["texts"][0])
+            # Convert Markdown to plain text
+            markdown_content = result["texts"][0]
+            
+            # Parse and display Markdown content
+            self.parse_markdown(markdown_content)
             
         except Exception as e:
             logger.error(f"Generation error: {str(e)}")
-            self.output_text.delete("1.0", tk.END)
-            self.output_text.insert(tk.END, f"Error: {str(e)}")
+            error_message = f"Error: {str(e)}"
+            self.parse_markdown(error_message)
         finally:
-            self.generate_btn.config(state='normal')
+            # Stop spinner and re-enable generate button in the main thread
+            self.root.after(0, self.stop_spinner)
+    
+    def stop_spinner(self):
+        """Stop the spinner and re-enable the generate button."""
+        self.spinner.stop()
+        self.generate_btn.config(state='normal')
     
     def run(self):
         """Start the GUI."""
