@@ -108,11 +108,40 @@ class VoiceToText:
         :param audio_data: float32 NumPy array from sounddevice.
         :return: Transcribed text or None if an error occurs.
         """
+        # Validate audio data
+        if not isinstance(audio_data, np.ndarray):
+            self.logger.error("Audio data is not a NumPy array.")
+            return None
+
+        if audio_data.dtype != np.float32:
+            self.logger.error(f"Audio data dtype is {audio_data.dtype}, expected float32.")
+            return None
+
+        if np.isnan(audio_data).any():
+            self.logger.error("Audio data contains NaN values.")
+            return None
+
+        if np.isinf(audio_data).any():
+            self.logger.error("Audio data contains Inf values.")
+            return None
+
+        if audio_data.shape[0] == 0:
+            self.logger.error("Audio data is empty.")
+            return None
+
+        # Optionally, normalize audio data
+        max_val = np.max(np.abs(audio_data))
+        if max_val > 0:
+            audio_data = audio_data / max_val
+
         try:
             self.logger.info("Transcribing audio data via Whisper...")
-            result = self.model.transcribe(audio_data)
+            result = self.model.transcribe(audio_data, fp16=False)
             text = result.get("text", "").strip()
-            self.logger.info(f"Transcribed text: {text}")
+            if not text:
+                self.logger.warning("Whisper returned empty transcription.")
+            else:
+                self.logger.info(f"Transcribed text: {text}")
             return text
         except Exception as e:
             self.logger.error(f"Error transcribing audio: {e}")

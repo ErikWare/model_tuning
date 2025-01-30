@@ -12,6 +12,7 @@ import markdown  # Import markdown for converting Markdown to HTML
 from src.utils.personality_configs import PersonalityConfig
 from src.utils.markdown_formatter import MarkdownFormatter  # Import MarkdownFormatter
 from src.utils.speech_utils import VoiceToText  # Import VoiceToText
+from src.utils.speech_utils import TextToSpeech  # Import TextToSpeech
 
 logger = setup_logging()
 
@@ -240,6 +241,24 @@ class ChatInterface:
         # Bind press and release events
         self.listen_button.bind('<ButtonPress-1>', self.start_recording)  # Updated method
         self.listen_button.bind('<ButtonRelease-1>', self.stop_recording)  # Updated method
+
+        # Initialize TextToSpeech
+        self.text_to_speech = TextToSpeech()
+        self.text_to_speech.enabled = True  # Enable TTS by default
+        
+        # Add a toggle button for TTS
+        tts_toggle_frame = tk.Frame(main_frame, bg='white')  # New frame for toggle
+        tts_toggle_frame.pack(pady=(0, 10))
+        
+        self.tts_var = tk.BooleanVar(value=self.text_to_speech.enabled)
+        self.tts_checkbox = tk.Checkbutton(
+            tts_toggle_frame,
+            text="Enable Text-to-Speech",
+            variable=self.tts_var,
+            command=self.toggle_tts,
+            bg='white'
+        )
+        self.tts_checkbox.pack()
     
     def update_selected_config(self, config_name):
         """Update the Selected Configuration display based on the selected configuration."""
@@ -327,6 +346,20 @@ class ChatInterface:
             # Convert Markdown to plain text
             markdown_content = result["texts"][0]
             
+            # Invoke Text-to-Speech in a separate thread if enabled
+            if self.text_to_speech.enabled:
+                def speak_text():
+                    try:
+                        self.text_to_speech.speak(markdown_content)
+                    except Exception as e:
+                        # Retrieve dedicated logger from logging_utils
+                        speak_logger = logging.getLogger('speak_text_thread')
+                        speak_logger.error(f"Error in speak_text thread: {str(e)}")
+                
+                threading.Thread(target=speak_text, daemon=True).start()
+            else:
+                self.logger.info("Text-to-Speech is disabled; skipping speech synthesis.")
+            
             # Parse and display Markdown content
             self.parse_markdown(markdown_content)
             
@@ -382,3 +415,9 @@ class ChatInterface:
         # ...existing cleanup code...
         self.voice_to_text.stop_listening()  # Ensure all listening is stopped
         self.root.destroy()
+    
+    def toggle_tts(self):
+        """Toggle Text-to-Speech on or off."""
+        new_state = self.tts_var.get()
+        self.text_to_speech.enabled = new_state
+        self.logger.info(f"Text-to-Speech {'enabled' if new_state else 'disabled'} via toggle.")
