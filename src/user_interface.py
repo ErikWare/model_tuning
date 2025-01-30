@@ -11,11 +11,14 @@ import tkinter.ttk as ttk  # Import ttk for Progressbar
 import markdown  # Import markdown for converting Markdown to HTML
 from src.utils.personality_configs import PersonalityConfig
 from src.utils.markdown_formatter import MarkdownFormatter  # Import MarkdownFormatter
+from src.utils.speech_utils import VoiceToText  # Import VoiceToText
 
 logger = setup_logging()
 
 class ChatInterface:
     def __init__(self, model=None, tokenizer=None, device='cpu', generate_fn=None, tts_engine=None):
+        self.logger = logger  # Assign the global logger to the instance
+        
         # Save the generation function
         self.generate_fn = generate_fn
         
@@ -217,6 +220,26 @@ class ChatInterface:
         
         # Initialize selected personality
         self.selected_personality = PersonalityConfig.BLANK
+
+        # Initialize VoiceToText
+        self.voice_to_text = VoiceToText()
+
+        # Add "Hold to Speak" button
+        listen_frame = tk.Frame(main_frame, bg='white')
+        listen_frame.pack(pady=(0, 10))
+        
+        self.listen_button = tk.Button(
+            listen_frame,
+            text="Hold to Speak",
+            font=('Arial', 11),
+            pady=5,
+            bg='lightblue'
+        )
+        self.listen_button.pack()
+        
+        # Bind press and release events
+        self.listen_button.bind('<ButtonPress-1>', self.start_recording)  # Updated method
+        self.listen_button.bind('<ButtonRelease-1>', self.stop_recording)  # Updated method
     
     def update_selected_config(self, config_name):
         """Update the Selected Configuration display based on the selected configuration."""
@@ -330,3 +353,32 @@ class ChatInterface:
         """
         personality_header = self.personalities.get(personality_name, "")
         self.current_prompt = f"{personality_header}\n{self.user_input}"
+
+    def start_recording(self, event):
+        """Handle button press to start recording."""
+        self.logger.info("Hold to Speak button pressed. Starting to record.")
+        # Clear the input_text
+        self.input_text.delete("1.0", tk.END)
+
+        # Start recording
+        self.voice_to_text.start_recording()
+
+    def stop_recording(self, event):
+        """Handle button release to stop recording and process transcription."""
+        self.logger.info("Hold to Speak button released. Stopping recording.")
+        
+        def handle_transcription():
+            text = self.voice_to_text.stop_recording()
+            if text:
+                self.logger.info(f"Transcription received: {text}")
+                self.input_text.insert(tk.END, text + '\n')
+        
+        # Handle transcription in a separate thread to avoid blocking the UI
+        threading.Thread(target=handle_transcription, daemon=True).start()
+
+    def on_close(self):
+        """Handle application exit by stopping listening threads and closing the window."""
+        self.logger.info("Application is shutting down. Stopping background listening...")
+        # ...existing cleanup code...
+        self.voice_to_text.stop_listening()  # Ensure all listening is stopped
+        self.root.destroy()
