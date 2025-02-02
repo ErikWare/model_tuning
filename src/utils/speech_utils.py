@@ -8,7 +8,6 @@ from scipy.io import wavfile
 import pyttsx3
 import threading
 import queue
-from gtts import gTTS
 import os
 
 
@@ -193,13 +192,15 @@ class VoiceToText:
 
 class TextToSpeech:
     def __init__(self, lang='en'):
-        self.lang = lang
-        self.logger = logging.getLogger(__name__)
+        # Initialize pyttsx3 TTS engine for offline usage
+        self.engine = pyttsx3.init()
+        self.enabled = True
 
     def speak(self, text):
-        try:
-            tts = gTTS(text=text, lang=self.lang)
-            tts.save("output.mp3")
-            os.system("mpg321 output.mp3")  # Ensure mpg321 is installed on your system
-        except Exception as e:
-            self.logger.error(f"Text-to-Speech error: {e}")
+        if self.enabled:
+            self.engine.say(text)
+            self.engine.runAndWait()
+
+    def stop(self):
+        # pyttsx3 does not support true interruption; we simulate stop by ending any queued commands.
+        self.engine.stop()

@@ -15,11 +15,12 @@ from src.utils.speech_utils import VoiceToText  # Import VoiceToText
 from src.utils.speech_utils import TextToSpeech  # Import TextToSpeech
 import time  # Added import
 import queue  # Added import
+import json
 
 logger = setup_logging()
 
 class ChatInterface:
-    def __init__(self, model=None, tokenizer=None, device='cpu', generate_fn=None, tts_engine=None):
+    def __init__(self, model=None, tokenizer=None, device='cpu', generate_fn=None, tts_engine=None, models_list={}, controller_class=None, default_model_path=None):
         self.logger = logger  # Assign the global logger to the instance
         
         # Save the generation function
@@ -289,6 +290,24 @@ class ChatInterface:
         
         # Start the GUI update loop
         self.root.after(100, self.process_gui_queue)
+        
+        self.device = device
+        self.generate_fn = generate_fn
+        self.tokenizer = tokenizer
+        self.controller_class = controller_class
+        self.current_model_path = default_model_path
+        self.models_list = models_list  # Expected as a dict { "ModelName": "path", ... }
+
+        # New Model Selection Frame
+        model_select_frame = tk.LabelFrame(main_frame, text="Model Selection", bg='white')
+        model_select_frame.pack(fill=tk.X, pady=(0, 10))
+        tk.Label(model_select_frame, text="Select Model:", bg='white').pack(side=tk.LEFT, padx=5)
+        self.model_var = tk.StringVar()
+        # Set default selection if available
+        default_model = next(iter(models_list)) if models_list else "Default"
+        self.model_var.set(default_model)
+        tk.OptionMenu(model_select_frame, self.model_var, *list(models_list.keys())).pack(side=tk.LEFT, padx=5)
+        tk.Button(model_select_frame, text="Reload Model", command=self.reload_model, bg='lightgreen').pack(side=tk.LEFT, padx=5)
     
     def process_gui_queue(self):
         """Process queued GUI updates."""
@@ -475,3 +494,27 @@ class ChatInterface:
             self.text_to_speech.speak(text)
         else:
             self.logger.warning("No text available for Text-to-Speech.")
+    
+    def reload_model(self):
+        """Reload model based on selected model from dropdown."""
+        selected_name = self.model_var.get()
+        model_rel_path = self.models_list.get(selected_name)
+        if model_rel_path:
+            from pathlib import Path
+            # Assuming project root is two levels up from this file
+            project_root = Path(__file__).parents[2]
+            new_model_path = project_root / model_rel_path
+            self.logger.info(f"Reloading model: {selected_name} from {new_model_path}")
+            try:
+                controller = self.controller_class(
+                    model_path=new_model_path,
+                    device=self.device
+                )
+                self.generate_fn = controller.generate
+                self.tokenizer = controller.tokenizer
+                # Optionally update model status information in UI...
+                self.logger.info(f"Model reloaded: {selected_name}")
+            except Exception as e:
+                self.logger.error(f"Error reloading model: {e}")
+        else:
+            self.logger.error("Selected model not found in models list.")

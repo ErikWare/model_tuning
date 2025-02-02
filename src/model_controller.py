@@ -61,16 +61,18 @@ class ModelController:
     def _load_model(self):
         """Load the model and tokenizer."""
         try:
-            logger.info("Loading tokenizer...")
+            logger.info("Loading tokenizer offline...")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path,
                 use_fast=True,
-                trust_remote_code=True
+                trust_remote_code=True,
+                local_files_only=True
             )
             
-            logger.info("Loading model...")
+            logger.info("Loading model offline...")
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
+                local_files_only=True,
                 **self.model_kwargs
             )
             

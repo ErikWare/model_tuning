@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 import torch
 import os
+import json  # New import
 
 # Add project root to Python path
 PROJECT_ROOT = Path(__file__).parents[1]
@@ -35,13 +36,27 @@ def setup_environment():
     
     return device
 
+def load_model_list():
+    models_json = PROJECT_ROOT / "models" / "light_weight_models.json"
+    if models_json.exists():
+        with open(models_json, "r") as f:
+            # Expecting a dict in the form { "ModelName": "relative/path/to/model", ... }
+            return json.load(f)
+    else:
+        logger.warning("Model list JSON not found. Using default model.")
+        return {}
+
 def main():
     try:
         # Setup environment
         device = setup_environment()
-        
-        # Initialize model controller with absolute path
-        model_path = PROJECT_ROOT / "models" / "deepseek"
+        models_list = load_model_list()
+        # Select default model (if available, first entry; else default to 'deepseek')
+        if models_list:
+            default_model_name, model_rel_path = next(iter(models_list.items()))
+            model_path = PROJECT_ROOT / model_rel_path
+        else:
+            logger.error("No models found in the model list. Please download models first.")
 
         if not model_path.exists():
             raise FileNotFoundError(f"Model not found at {model_path}")
@@ -57,7 +72,10 @@ def main():
             model=controller.model,
             tokenizer=controller.tokenizer,
             device=device,
-            generate_fn=controller.generate
+            generate_fn=controller.generate,
+            models_list=models_list,  # Pass the models mapping to the UI
+            controller_class=ModelController,  # Pass controller for later reloads
+            default_model_path=model_path
         )
         
         logger.info("Starting application")
