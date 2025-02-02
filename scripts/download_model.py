@@ -46,8 +46,9 @@ def download_model(model_variant: str, model_dir: Path):
     torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
     device_map = "auto"
 
-    model_variant_dir = model_dir / model_variant
-    model_variant_dir.mkdir(parents=True, exist_ok=True)
+    models_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
+    model_variant_dir = os.path.join(models_root, model_variant)
+    os.makedirs(model_variant_dir, exist_ok=True)  # Ensure the model folder exists
 
     logger.info(f"Downloading {model_name} into {model_variant_dir}")
     logger.info(f"Using torch_dtype: {torch_dtype} and device_map: {device_map}")
@@ -83,7 +84,7 @@ def download_model(model_variant: str, model_dir: Path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Universal LLM download script for scientific analysis")
     parser.add_argument('--variant', type=str, required=True, choices=MODEL_CONFIGS.keys(),
-                        help='Select the model variant to download')
+                        help='Select the model variant to download (e.g., "gpt-neo-1.3B")')
     parser.add_argument('--model_dir', type=str, default='models/',
                         help='Local directory to store the downloaded model and tokenizer')
     args = parser.parse_args()

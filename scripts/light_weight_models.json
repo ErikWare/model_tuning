@@ -145,5 +145,12 @@
         "description": "Llama 2 Chat model tailored for interactive conversation and Q&A.",
         "category": "Conversational QA",
         "notes": "Provides quality dialogue interaction; suitable for research experiments on a 16GB M1."
+    },
+    "gpt-neo-1.3B-chat": {
+        "name": "EleutherAI/gpt-neo-1.3B",
+        "size": "1.3B",
+        "description": "GPT-Neo 1.3B model fine-tuned for conversational tasks",
+        "category": "Generative Conversational",
+        "notes": "Optimized for general conversation and interactive Q&A; download and test for everyday dialogue."
     }
 }
