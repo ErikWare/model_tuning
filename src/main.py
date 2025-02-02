@@ -3,6 +3,7 @@ from pathlib import Path
 import torch
 import os
 import json  # New import
+import yaml
 
 # Add project root to Python path
 PROJECT_ROOT = Path(__file__).parents[1]
@@ -36,27 +37,37 @@ def setup_environment():
     
     return device
 
-def load_model_list():
-    models_json = PROJECT_ROOT / "models" / "light_weight_models.json"
-    if models_json.exists():
-        with open(models_json, "r") as f:
-            # Expecting a dict in the form { "ModelName": "relative/path/to/model", ... }
-            return json.load(f)
-    else:
-        logger.warning("Model list JSON not found. Using default model.")
-        return {}
+def load_model_config():
+    config_path = PROJECT_ROOT / "models" / "config.yaml"
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+    # Filter out models with blank repo or snapshot
+    available_models = {
+        model["name"]: model["full_path"]
+        for model in config["models"].values()
+        if model.get("repo") and model.get("snapshot")
+    }
+    return available_models
 
 def main():
     try:
         # Setup environment
         device = setup_environment()
-        models_list = load_model_list()
-        # Select default model (if available, first entry; else default to 'deepseek')
-        if models_list:
-            default_model_name, model_rel_path = next(iter(models_list.items()))
-            model_path = PROJECT_ROOT / model_rel_path
+        # Load models from config.yaml instead of JSON
+        models_list = load_model_config()
+        # Use "gpt-neo-1.3B" as default model if available, else default to first available model.
+        if "gpt-neo-1.3B" in models_list:
+            default_model_name = "gpt-neo-1.3B"
         else:
-            logger.error("No models found in the model list. Please download models first.")
+            default_model_name = next(iter(models_list)) if models_list else None
+        if not default_model_name:
+            logger.error("No valid models found in config.yaml.")
+            return
+        model_rel_path = models_list[default_model_name]
+        # Prepend "models" folder; remove leading "./" if present.
+        if model_rel_path.startswith("./"):
+            model_rel_path = model_rel_path[2:]
+        model_path = PROJECT_ROOT / "models" / model_rel_path
 
         if not model_path.exists():
             raise FileNotFoundError(f"Model not found at {model_path}")
@@ -66,15 +77,15 @@ def main():
             device=device
         )
         
-        # Initialize GUI
+        # Initialize GUI with models mapping from YAML
         logger.info("Initializing chat interface")
         app = ChatInterface(
             model=controller.model,
             tokenizer=controller.tokenizer,
             device=device,
             generate_fn=controller.generate,
-            models_list=models_list,  # Pass the models mapping to the UI
-            controller_class=ModelController,  # Pass controller for later reloads
+            models_list=models_list,  # Pass the models mapping from config.yaml
+            controller_class=ModelController,
             default_model_path=model_path
         )
         

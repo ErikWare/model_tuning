@@ -2,7 +2,7 @@ import logging
 import torch
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 from src.utils.logging_utils import setup_logging
 from src.utils.generation_configs import GenerationConfig
 
@@ -69,10 +69,22 @@ class ModelController:
                 local_files_only=True
             )
             
-            logger.info("Loading model offline...")
+            # Load configuration and ensure model_type exists
+            config = AutoConfig.from_pretrained(
+                self.model_path,
+                trust_remote_code=True,
+                local_files_only=True
+            )
+            if not getattr(config, "model_type", None):
+                logger.warning("config.json is missing 'model_type'. Setting default 'gpt2'.")
+                config.__dict__["model_type"] = "gpt2"
+            
+            logger.info("Loading model offline with safetensors enabled if available...")
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
                 local_files_only=True,
+                use_safetensors=True,
+                config=config,
                 **self.model_kwargs
             )
             
