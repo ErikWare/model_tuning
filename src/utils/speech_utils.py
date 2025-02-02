@@ -6,10 +6,16 @@ import whisper
 from typing import Optional
 from scipy.io import wavfile
 import pyttsx3
+import threading
+import queue
+from gtts import gTTS
+import os
+
 
 class VoiceToText:
     """
     Offline voice-to-text using Whisper in a press-and-hold (push-to-talk) style.
+    Safely handles recording in a separate thread to avoid blocking the UI.
 
     Usage:
       1) Create instance:  vtt = VoiceToText()
@@ -44,6 +50,8 @@ class VoiceToText:
     def start_recording(self) -> None:
         """
         Begin recording audio. Intended to be called when a user presses (and holds) a button.
+        Begins async capture of audio using sounddevice.
+        Ensures no double-recording occurs at once.
         """
         if self._recording:
             self.logger.warning("start_recording() called but we are already recording.")
@@ -74,6 +82,8 @@ class VoiceToText:
         """
         Stop recording and transcribe the captured audio.
         Intended to be called when the user releases the button.
+        This method is safe to call in a background thread 
+        to keep the UI responsive and resources free.
         :return: Transcribed text or None if any error occurs.
         """
         if not self._recording:
@@ -138,6 +148,8 @@ class VoiceToText:
             self.logger.info("Transcribing audio data via Whisper...")
             result = self.model.transcribe(audio_data, fp16=False)
             text = result.get("text", "").strip()
+            # Remove text prior to '[thinking]' to limit logic or reasoning
+            text = self.remove_pre_thinking(text)
             if not text:
                 self.logger.warning("Whisper returned empty transcription.")
             else:
@@ -146,6 +158,24 @@ class VoiceToText:
         except Exception as e:
             self.logger.error(f"Error transcribing audio: {e}")
             return None
+
+    def remove_pre_thinking(self, text: str) -> str:
+        """
+        Removes text prior to any recognized 'thinking' tags, making it more flexible.
+        """
+        thinking_tags = ["[thinking]", "[internal]", "[chain-of-thought]", "(consideration)"]
+        earliest_index = -1
+        chosen_tag = None
+
+        for tag in thinking_tags:
+            idx = text.find(tag)
+            if idx != -1 and (earliest_index == -1 or idx < earliest_index):
+                earliest_index = idx
+                chosen_tag = tag
+
+        if earliest_index != -1 and chosen_tag is not None:
+            return text[earliest_index + len(chosen_tag):].strip()
+        return text
 
     def save_audio(self, audio_data: np.ndarray, filename: str = "recording.wav") -> None:
         """
@@ -162,48 +192,14 @@ class VoiceToText:
 
 
 class TextToSpeech:
-    """
-    Offline text-to-speech using pyttsx3.
-    """
-
-    def __init__(self) -> None:
-        self.enabled: bool = False
+    def __init__(self, lang='en'):
+        self.lang = lang
         self.logger = logging.getLogger(__name__)
 
-        # Initialize pyttsx3 once at startup (offline TTS)
+    def speak(self, text):
         try:
-            self.engine = pyttsx3.init()
-            self.logger.info("TTS engine initialized successfully.")
+            tts = gTTS(text=text, lang=self.lang)
+            tts.save("output.mp3")
+            os.system("mpg321 output.mp3")  # Ensure mpg321 is installed on your system
         except Exception as e:
-            self.logger.error(f"Failed to initialize offline TTS engine: {e}")
-            self.engine = None
-
-    def speak(self, text: str) -> bool:
-        """
-        Convert text to speech (using pyttsx3) and play it offline.
-        Returns True if successful, else False.
-        """
-        if not self.enabled:
-            self.logger.debug("TTS is disabled.")
-            return False
-        if not text or not self.engine:
-            self.logger.debug("No text or invalid TTS engine.")
-            return False
-
-        try:
-            self.engine.say(text)
-            self.engine.runAndWait()
-            self.logger.info("Speech synthesis completed successfully.")
-            return True
-        except Exception as e:
-            self.logger.error(f"TTS Error: {e}")
-            return False
-
-    def toggle(self) -> bool:
-        """
-        Toggle TTS on/off (used by the GUI).
-        Returns the new state (True = enabled, False = disabled).
-        """
-        self.enabled = not self.enabled
-        self.logger.info(f"Text-to-speech {'enabled' if self.enabled else 'disabled'}")
-        return self.enabled
+            self.logger.error(f"Text-to-Speech error: {e}")

@@ -1,0 +1,149 @@
+{
+    "distilbert-base-uncased": {
+        "name": "distilbert-base-uncased",
+        "size": "66M",
+        "description": "DistilBERT model, uncased",
+        "category": "NLP Classification",
+        "notes": "Great for baseline text embedding and classification tasks."
+    },
+    "distilroberta-base": {
+        "name": "distilroberta-base",
+        "size": "82M",
+        "description": "DistilRoBERTa model",
+        "category": "NLP Understanding",
+        "notes": "Useful for language understanding and semantic tasks."
+    },
+    "albert-base-v2": {
+        "name": "albert-base-v2",
+        "size": "12M",
+        "description": "ALBERT base model v2",
+        "category": "NLP Classification",
+        "notes": "Lightweight and efficient for classification experiments."
+    },
+    "tinybert": {
+        "name": "huawei-noah/TinyBERT_General_4L_312D",
+        "size": "14M",
+        "description": "TinyBERT model",
+        "category": "NLP Distillation",
+        "notes": "Optimized for mobile and low-resource NLP tasks."
+    },
+    "mobilebert-uncased": {
+        "name": "google/mobilebert-uncased",
+        "size": "25M",
+        "description": "MobileBERT model, uncased",
+        "category": "NLP Mobile",
+        "notes": "Ideal for lightweight inference on mobile devices."
+    },
+    "minilm-l12-h384-uncased": {
+        "name": "microsoft/MiniLM-L12-H384-uncased",
+        "size": "33M",
+        "description": "MiniLM model, 12 layers, 384 hidden size, uncased",
+        "category": "NLP Efficiency",
+        "notes": "Balances performance and speed for many NLP tasks."
+    },
+    "electra-small-discriminator": {
+        "name": "google/electra-small-discriminator",
+        "size": "14M",
+        "description": "ELECTRA small discriminator model",
+        "category": "NLP Efficiency",
+        "notes": "Optimized for fast training and inference in classification tasks."
+    },
+    "bart-base": {
+        "name": "facebook/bart-base",
+        "size": "139M",
+        "description": "BART base model",
+        "category": "Seq2Seq / Generative",
+        "notes": "Good for summarization and generation tasks."
+    },
+    "gpt-neo-1.3B": {
+        "name": "EleutherAI/gpt-neo-1.3B",
+        "size": "1.3B",
+        "description": "GPT-Neo model with 1.3 billion parameters",
+        "category": "Generative Language",
+        "notes": "Suitable for moderate generative experiments."
+    },
+    "gpt-neo-2.7B": {
+        "name": "EleutherAI/gpt-neo-2.7B",
+        "size": "2.7B",
+        "description": "GPT-Neo model with 2.7 billion parameters",
+        "category": "Generative Language",
+        "notes": "Offers improved language generation capabilities compared to 1.3B."
+    },
+    "gpt-j-6B": {
+        "name": "EleutherAI/gpt-j-6B",
+        "size": "6B",
+        "description": "GPT-J model with 6 billion parameters",
+        "category": "Generative Language",
+        "notes": "Heavyweight generative model; test for advanced language tasks if resources allow."
+    },
+    "llama-7b": {
+        "name": "facebook/llama-7b",
+        "size": "7B",
+        "description": "LLama model with 7 billion parameters",
+        "category": "Generative Research",
+        "notes": "Cutting-edge research model for generative language tasks."
+    },
+    "llama-13b": {
+        "name": "facebook/llama-13b",
+        "size": "13B",
+        "description": "LLama model with 13 billion parameters",
+        "category": "Generative Research",
+        "notes": "Advanced research model; may be heavy for M1 environments."
+    },
+    "mistral-7b": {
+        "name": "mistral-7b",
+        "size": "7B",
+        "description": "Mistral model with 7 billion parameters",
+        "category": "Generative Research",
+        "notes": "New entrant in generative models; test for performance and efficiency."
+    },
+    "mistral-13b": {
+        "name": "mistral-13b",
+        "size": "13B",
+        "description": "Mistral model with 13 billion parameters",
+        "category": "Generative Research",
+        "notes": "For advanced generative experiments, though may push hardware limits."
+    },
+    "distilgpt2": {
+        "name": "distilgpt2",
+        "size": "82M",
+        "description": "DistilGPT-2 model",
+        "category": "Generative Language",
+        "notes": "A smaller version of GPT-2 for quick generative experiments."
+    },
+    "t5-small": {
+        "name": "t5-small",
+        "size": "60M",
+        "description": "T5 small model",
+        "category": "Translational/Summarization",
+        "notes": "Efficient for text-to-text tasks such as translation and summarization."
+    },
+    "t5-base": {
+        "name": "t5-base",
+        "size": "220M",
+        "description": "T5 base model",
+        "category": "Translational/Summarization",
+        "notes": "Strikes a balance between performance and resource usage for text generation."
+    },
+    "vicuna-7b": {
+        "name": "lmsys/vicuna-7b-v1.3",
+        "size": "7B",
+        "description": "Vicuna model fine-tuned for conversational Q&A.",
+        "category": "Conversational QA",
+        "notes": "Delivers high-quality interactive question-answering; evaluate for research and testing."
+    },
+    "wizardlm-7b": {
+        "name": "WizardLM/WizardLM-7B-V1.0",
+        "size": "7B",
+        "description": "WizardLM model optimized for advanced conversational tasks.",
+        "category": "Conversational QA",
+        "notes": "Designed for complex Q&A and interactive dialogues; ideal for scientific prototyping."
+    },
+    "llama-2-7b-chat": {
+        "name": "meta-llama/Llama-2-7b-chat-hf",
+        "size": "7B",
+        "description": "Llama 2 Chat model tailored for interactive conversation and Q&A.",
+        "category": "Conversational QA",
+        "notes": "Provides quality dialogue interaction; suitable for research experiments on a 16GB M1."
+    }
+}

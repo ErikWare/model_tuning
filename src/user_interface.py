@@ -13,6 +13,8 @@ from src.utils.personality_configs import PersonalityConfig
 from src.utils.markdown_formatter import MarkdownFormatter  # Import MarkdownFormatter
 from src.utils.speech_utils import VoiceToText  # Import VoiceToText
 from src.utils.speech_utils import TextToSpeech  # Import TextToSpeech
+import time  # Added import
+import queue  # Added import
 
 logger = setup_logging()
 
@@ -242,15 +244,15 @@ class ChatInterface:
         self.listen_button.bind('<ButtonPress-1>', self.start_recording)  # Updated method
         self.listen_button.bind('<ButtonRelease-1>', self.stop_recording)  # Updated method
 
-        # Initialize TextToSpeech
+        # Initialize TextToSpeech - keep it simple
         self.text_to_speech = TextToSpeech()
-        self.text_to_speech.enabled = True  # Enable TTS by default
+        self.text_to_speech.enabled = True
         
         # Add a toggle button for TTS
-        tts_toggle_frame = tk.Frame(main_frame, bg='white')  # New frame for toggle
+        tts_toggle_frame = tk.Frame(main_frame, bg='white')
         tts_toggle_frame.pack(pady=(0, 10))
         
-        self.tts_var = tk.BooleanVar(value=self.text_to_speech.enabled)
+        self.tts_var = tk.BooleanVar(value=True)
         self.tts_checkbox = tk.Checkbutton(
             tts_toggle_frame,
             text="Enable Text-to-Speech",
@@ -259,6 +261,44 @@ class ChatInterface:
             bg='white'
         )
         self.tts_checkbox.pack()
+
+        # Add "Stop TTS" button
+        stop_tts_button = tk.Button(
+            tts_toggle_frame,
+            text="Stop TTS",
+            command=lambda: self.text_to_speech.stop(),
+            bg='white'
+        )
+        stop_tts_button.pack()
+        
+        # Add a button to test the text-to-speech functionality
+        tts_test_frame = tk.Frame(main_frame, bg='white')
+        tts_test_frame.pack(pady=(0, 10))
+        
+        self.tts_test_button = tk.Button(
+            tts_test_frame,
+            text="Test Text-to-Speech",
+            command=self.test_text_to_speech,
+            font=('Arial', 11),
+            pady=5
+        )
+        self.tts_test_button.pack()
+        
+        # Initialize a queue for thread-safe GUI updates
+        self.gui_queue = queue.Queue()
+        
+        # Start the GUI update loop
+        self.root.after(100, self.process_gui_queue)
+    
+    def process_gui_queue(self):
+        """Process queued GUI updates."""
+        try:
+            while True:
+                func, args = self.gui_queue.get_nowait()
+                func(*args)
+        except queue.Empty:
+            pass
+        self.root.after(100, self.process_gui_queue)
     
     def update_selected_config(self, config_name):
         """Update the Selected Configuration display based on the selected configuration."""
@@ -314,7 +354,10 @@ class ChatInterface:
                 self.output_text.insert(tk.END, word + ' ')
     
     def _generate_response_thread(self):
-        """Thread target for generating response."""
+        """
+        This thread handles text generation asynchronously, preventing UI blocking.
+        We also manage TTS in a separate daemon thread to avoid resource leaks.
+        """
         try:
             user_input = self.input_text.get("1.0", tk.END).strip()
             
@@ -340,36 +383,26 @@ class ChatInterface:
                 **generation_params  # Apply selected configuration
             )
             
-            # Update metrics with animation
-            self.update_metrics(result["metrics"])
+            # Update metrics via the GUI queue
+            self.gui_queue.put((self.update_metrics, (result["metrics"],)))
             
-            # Convert Markdown to plain text
+            # Get Markdown content
             markdown_content = result["texts"][0]
             
-            # Invoke Text-to-Speech in a separate thread if enabled
+            # Speak the generated text if TTS is enabled
             if self.text_to_speech.enabled:
-                def speak_text():
-                    try:
-                        self.text_to_speech.speak(markdown_content)
-                    except Exception as e:
-                        # Retrieve dedicated logger from logging_utils
-                        speak_logger = logging.getLogger('speak_text_thread')
-                        speak_logger.error(f"Error in speak_text thread: {str(e)}")
-                
-                threading.Thread(target=speak_text, daemon=True).start()
-            else:
-                self.logger.info("Text-to-Speech is disabled; skipping speech synthesis.")
+                self.text_to_speech.speak(markdown_content)
             
-            # Parse and display Markdown content
-            self.parse_markdown(markdown_content)
+            # Schedule Markdown parsing in the main thread
+            self.gui_queue.put((self.parse_markdown, (markdown_content,)))
             
         except Exception as e:
             logger.error(f"Generation error: {str(e)}")
             error_message = f"Error: {str(e)}"
-            self.parse_markdown(error_message)
+            self.gui_queue.put((self.parse_markdown, (error_message,)))
         finally:
-            # Stop spinner and re-enable generate button in the main thread
-            self.root.after(0, self.stop_spinner)
+            # Schedule spinner stop in the main thread
+            self.gui_queue.put((self.stop_spinner, ()))
     
     def stop_spinner(self):
         """Stop the spinner and re-enable the generate button."""
@@ -410,14 +443,35 @@ class ChatInterface:
         threading.Thread(target=handle_transcription, daemon=True).start()
 
     def on_close(self):
-        """Handle application exit by stopping listening threads and closing the window."""
+        """
+        Cleans up resources (stopping recordings, destroying the window).
+        Ensures any background threads terminate gracefully.
+        """
         self.logger.info("Application is shutting down. Stopping background listening...")
         # ...existing cleanup code...
         self.voice_to_text.stop_listening()  # Ensure all listening is stopped
+        self.stop_tts_playback()  # Stop any ongoing TTS
         self.root.destroy()
     
     def toggle_tts(self):
-        """Toggle Text-to-Speech on or off."""
-        new_state = self.tts_var.get()
-        self.text_to_speech.enabled = new_state
-        self.logger.info(f"Text-to-Speech {'enabled' if new_state else 'disabled'} via toggle.")
+        """Simple toggle for TTS state."""
+        self.text_to_speech.enabled = self.tts_var.get()
+        if not self.text_to_speech.enabled:
+            self.text_to_speech.stop()
+
+    def stop_tts_playback(self):
+        """
+        Interrupt ongoing TTS playback if the user wants to stop early.
+        """
+        try:
+            self.text_to_speech.stop()
+        except Exception as e:
+            self.logger.error(f"Error stopping TTS playback: {e}")
+    
+    def test_text_to_speech(self):
+        """Test the text-to-speech functionality with the content in the user input section."""
+        text = self.input_text.get("1.0", tk.END).strip()
+        if text:
+            self.text_to_speech.speak(text)
+        else:
+            self.logger.warning("No text available for Text-to-Speech.")
