@@ -100,6 +100,21 @@ class ChatInterface:
         self.model_device_label.pack(anchor='w', pady=2)
         
         # =========================================================================
+        # Metrics Frame: Displays generation performance metrics with separate labels for names and values.
+        # =========================================================================
+        metrics_frame = tk.LabelFrame(main_frame, text="Metrics", bg=FRAME_BG, fg=ACCENT_COLOR, font=FONT_HEADER)
+        metrics_frame.pack(fill=tk.X, pady=(0, 10))
+        self.metrics_labels = {}
+        for key in ["Generation Time", "Tokens/Second", "Input Tokens", "Output Tokens"]:
+            metric_frame = tk.Frame(metrics_frame, bg=FRAME_BG)
+            metric_frame.pack(side=tk.LEFT, padx=5, pady=5)
+            # Label for metric name
+            tk.Label(metric_frame, text=f"{key}:", bg=FRAME_BG, font=FONT_LABEL, fg="#333333").pack()
+            # Label for metric value (to be updated later)
+            self.metrics_labels[key] = tk.Label(metric_frame, text="N/A", bg=FRAME_BG, font=FONT_LABEL_BOLD, fg="#333333")
+            self.metrics_labels[key].pack()
+        
+        # =========================================================================
         # Selected Configuration Display
         # =========================================================================
         selected_config_frame = tk.LabelFrame(main_frame, text="Selected Configuration", bg=FRAME_BG, fg=ACCENT_COLOR, font=FONT_HEADER)
@@ -249,21 +264,70 @@ class ChatInterface:
         self.selected_personality = PersonalityConfig.PERSONALITY_OPTIONS.get(personality_name, "")
     
     def update_metrics(self, metrics):
-        """Update metrics display with a brief highlight."""
+        """
+        Update the metrics display with the generation performance.
+
+        Expected metrics keys:
+          - 'generation_time': Time taken to generate the response.
+          - 'tokens_per_second': Generation speed.
+          - 'input_tokens': Number of tokens in the prompt.
+          - 'new_tokens': List or collection of output tokens.
+        """
         self.metrics_labels["Generation Time"].config(text=f"{metrics['generation_time']:.2f}s")
         self.metrics_labels["Tokens/Second"].config(text=f"{metrics['tokens_per_second']:.1f} t/s")
         self.metrics_labels["Input Tokens"].config(text=str(metrics['input_tokens']))
         self.metrics_labels["Output Tokens"].config(text=str(sum(metrics['new_tokens'])))
+        # Briefly highlight metrics for improved user feedback
         for label in self.metrics_labels.values():
             label.config(foreground=ACCENT_COLOR)
             self.root.after(1000, lambda l=label: l.config(foreground="#333333"))
     
     def generate_response(self):
-        """Generate response asynchronously."""
+        """Generate response asynchronously using a background thread."""
+        self.logger.debug("generate_response: Starting asynchronous generation.")
         self.spinner.start()
         self.generate_btn.config(state='disabled')
-        thread = threading.Thread(target=self._generate_response_thread)
-        thread.start()
+        
+        def worker():
+            try:
+                user_input = self.input_text.get("1.0", tk.END).strip()
+                if not user_input:
+                    self.logger.debug("generate_response.worker: No input provided.")
+                    self.gui_queue.put((self.parse_markdown, ("Error: No input provided.",)))
+                    return
+
+                # Build prompt with selected personality if available
+                personality_header = self.selected_personality if hasattr(self, 'selected_personality') else ""
+                prompt = f"{personality_header}\n{user_input}" if personality_header else user_input
+
+                config_name = self.config_var.get()
+                eos_token_id = self.tokenizer.eos_token_id if self.tokenizer else None
+                generation_params = GenerationConfig.get_config(config_name, eos_token_id)
+
+                self.logger.debug("generate_response.worker: Invoking generate_fn asynchronously.")
+                result = self.generate_fn(prompt=prompt, **generation_params)
+                self.logger.debug("generate_response.worker: Generation successful.")
+
+                # Update metrics and process generated content on the GUI thread
+                self.gui_queue.put((self.update_metrics, (result["metrics"],)))
+                markdown_content = result["texts"][0]
+                self.gui_queue.put((self.handle_generated_response, (markdown_content,)))
+            except Exception as e:
+                self.logger.error(f"generate_response.worker: Generation error: {e}")
+                self.gui_queue.put((self.parse_markdown, (f"Error: {e}",)))
+            finally:
+                self.gui_queue.put((self.stop_spinner, ()))
+        
+        threading.Thread(target=worker, daemon=True).start()
+
+    def handle_generated_response(self, markdown_content):
+        """
+        Handle markdown conversion and TTS invocation after response generation.
+        """
+        self.parse_markdown(markdown_content)
+        if self.text_to_speech.enabled:
+            # Run TTS asynchronously on a background thread
+            threading.Thread(target=self.run_tts, daemon=True).start()
     
     def parse_markdown(self, text):
         """Parse and display Markdown content."""
@@ -282,7 +346,7 @@ class ChatInterface:
     
     def _generate_response_thread(self):
         """
-        Handle text generation asynchronously and manage TTS in a separate thread.
+        Simplified asynchronous method that only performs text generation and updates metrics.
         """
         try:
             user_input = self.input_text.get("1.0", tk.END).strip()
@@ -293,18 +357,25 @@ class ChatInterface:
             config_name = self.config_var.get()
             eos_token_id = self.tokenizer.eos_token_id if self.tokenizer else None
             generation_params = GenerationConfig.get_config(config_name, eos_token_id)
-            
             result = self.generate_fn(prompt=prompt, **generation_params)
             self.gui_queue.put((self.update_metrics, (result["metrics"],)))
             markdown_content = result["texts"][0]
-            if self.text_to_speech.enabled:
-                self.text_to_speech.speak(markdown_content)
-            self.gui_queue.put((self.parse_markdown, (markdown_content,)))
+            # Queue processing of generated content separately
+            self.gui_queue.put((self.handle_generated_response, (markdown_content,)))
         except Exception as e:
             logger.error(f"Generation error: {str(e)}")
             self.gui_queue.put((self.parse_markdown, (f"Error: {str(e)}",)))
         finally:
             self.gui_queue.put((self.stop_spinner, ()))
+
+    def run_tts(self):
+        """
+        Run TTS on the current output content.
+        """
+        # Retrieve the content from the output field
+        current_text = self.output_text.get("1.0", tk.END).strip()
+        if current_text:
+            self.text_to_speech.speak(current_text)
     
     def stop_spinner(self):
         """Stop the spinner and re-enable the generate button."""

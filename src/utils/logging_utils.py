@@ -11,7 +11,7 @@ def setup_logging(log_path=Path("logs")):
     log_file = log_path / "app.log"
     
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,  # Updated log level to DEBUG
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler(log_file),
