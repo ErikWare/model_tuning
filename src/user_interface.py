@@ -11,8 +11,8 @@ import tkinter.ttk as ttk  # Import ttk for styling and Progressbar
 import markdown  # Import markdown for converting Markdown to HTML
 from src.utils.personality_configs import PersonalityConfig
 from src.utils.markdown_formatter import MarkdownFormatter  # Import MarkdownFormatter
-from src.utils.speech_utils import VoiceToText  # Import VoiceToText
-from src.utils.speech_utils import TextToSpeech  # Import TextToSpeech
+from src.utils.voice_to_text import VoiceToText  # Updated import
+from src.utils.text_to_speech import TextToSpeech  # Updated import
 import time
 import queue
 import json
