@@ -5,7 +5,7 @@ from typing import Optional
 from scipy.io import wavfile
 import os
 import tempfile
-import speech_recognition as sr  # New import for offline transcription using PocketSphinx
+import whisper  # New import for Whisper-based transcription
 
 # ...existing code (if any) ...
 
@@ -17,8 +17,8 @@ class VoiceToText:
         self.max_record_seconds: int = max_record_seconds
         self._recording: bool = False
         self._recorded_audio: Optional[np.ndarray] = None
-        # Initialize SpeechRecognition recognizer
-        self.recognizer = sr.Recognizer()
+        # Initialize Whisper model
+        self.whisper_model = whisper.load_model("base")  # Load Whisper model
 
     def start_recording(self) -> None:
         if self._recording:
@@ -70,14 +70,13 @@ class VoiceToText:
             return None
 
         try:
-            with sr.AudioFile(temp_wav) as source:
-                audio = self.recognizer.record(source)
-            self.logger.info("Transcribing audio via PocketSphinx...")
-            text = self.recognizer.recognize_sphinx(audio)
+            self.logger.info("Transcribing audio via Whisper...")
+            result = self.whisper_model.transcribe(temp_wav)
+            text = result.get("text", "").strip()
             if text:
                 self.logger.info(f"Transcribed text: {text}")
             else:
-                self.logger.warning("PocketSphinx returned empty transcription.")
+                self.logger.warning("Whisper returned empty transcription.")
             return text
         except Exception as e:
             self.logger.error(f"Error transcribing audio: {e}")

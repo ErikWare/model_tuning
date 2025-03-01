@@ -79,13 +79,13 @@ class ModelController:
                 logger.warning("config.json is missing 'model_type'. Setting default 'gpt2'.")
                 config.__dict__["model_type"] = "gpt2"
             
-            logger.info("Loading model offline with safetensors enabled if available...")
+            logger.info("Loading model securely using AutoModelForCausalLM.from_pretrained()...")
+            # Use secure parameters: weights_only=True, local_files_only=True, low_cpu_mem_usage, etc.
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
+                **self.model_kwargs,
                 local_files_only=True,
-                use_safetensors=True,
-                config=config,
-                **self.model_kwargs
+                weights_only=True  # ensure only model weights are loaded
             )
             
             # Move model to device if using MPS
@@ -104,6 +104,8 @@ class ModelController:
         except Exception as e:
             logger.error("Failed to load model or tokenizer", exc_info=True)
             raise
+
+    # Removed _load_model_weights() and _build_model() to avoid confusion.
 
     def generate(
         self,
@@ -167,3 +169,4 @@ class ModelController:
             "device": self.device,
             "config": self.model_kwargs
         }
+

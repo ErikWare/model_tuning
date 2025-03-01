@@ -7,9 +7,10 @@ class TextToSpeech:
     def __init__(self, lang='en'):
         self.lang = lang
         self.enabled = True
-        # Initialize engine only for non-macOS systems
+        # For macOS, store a reference to the subprocess
         if sys.platform == "darwin":
             self.engine = None
+            self.process = None
         else:
             self.engine = pyttsx3.init()
             self.engine.setProperty("rate", 150)
@@ -19,8 +20,11 @@ class TextToSpeech:
             return
         try:
             if sys.platform == "darwin":
-                # Use the system's "say" command on macOS
-                subprocess.run(["say", text])
+                # Terminate any previous TTS process
+                if self.process is not None:
+                    self.stop()
+                # Launch "say" command with Popen to allow termination
+                self.process = subprocess.Popen(["say", text])
             else:
                 self.engine.say(text)
                 self.engine.runAndWait()
@@ -29,7 +33,8 @@ class TextToSpeech:
 
     def stop(self):
         if sys.platform == "darwin":
-            # There's no stop for the "say" command, so do nothing
-            pass
+            if self.process is not None:
+                self.process.terminate()
+                self.process = None
         else:
             self.engine.stop()
